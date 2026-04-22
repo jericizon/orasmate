@@ -6,7 +6,7 @@
     <div class="flex items-center gap-1">
       <button
         v-if="!isRunning && !isPaused"
-        @click="$emit('start')"
+        @click="$emit('start', true)"
         class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
         title="Start timer"
       >
@@ -50,27 +50,32 @@
 
 <script setup lang="ts">
 interface Props {
+  taskId: string
   durationMs: number
-  isRunning: boolean
-  isPaused: boolean
 }
 
 const props = defineProps<Props>()
 
+const timerStore = useTimerStore()
+
 defineEmits<{
-  start: []
+  start: [pauseOthers: boolean]
   pause: []
   resume: []
   stop: []
 }>()
+
+const activeEntry = computed(() => timerStore.getActiveEntryForTask(props.taskId))
+const isRunning = computed(() => activeEntry.value?.isRunning || false)
+const isPaused = computed(() => activeEntry.value?.isPaused || false)
 
 const currentDurationMs = ref(props.durationMs)
 
 // Update duration every second when timer is running
 let intervalId: number | null = null
 
-watch(() => props.isRunning, (isRunning) => {
-  if (isRunning) {
+watch(() => isRunning.value, (running) => {
+  if (running) {
     intervalId = window.setInterval(() => {
       currentDurationMs.value += 1000
     }, 1000)
@@ -85,7 +90,7 @@ watch(() => props.isRunning, (isRunning) => {
 })
 
 watch(() => props.durationMs, (newDuration) => {
-  if (!props.isRunning) {
+  if (!isRunning.value) {
     currentDurationMs.value = newDuration
   }
 })

@@ -4,6 +4,14 @@
       <h1 class="text-3xl font-bold">Orasmate</h1>
       <div class="flex items-center gap-4">
         <button
+          v-if="hasRunningTimer"
+          @click="handleGlobalPause"
+          class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          title="Pause all timers"
+        >
+          Pause All
+        </button>
+        <button
           @click="projectModalOpen = true"
           class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
         >
@@ -109,13 +117,12 @@
                 </div>
                 <div class="flex items-center gap-4">
                   <TaskTimer
+                    :task-id="task.id"
                     :duration-ms="timerStore.getTotalTimeForTask(task.id)"
-                    :is-running="timerStore.activeEntry?.taskId === task.id && timerStore.activeEntry.isRunning"
-                    :is-paused="timerStore.activeEntry?.taskId === task.id && timerStore.activeEntry.isPaused"
-                    @start="timerStore.startTimer(task.id)"
-                    @pause="timerStore.pauseTimer()"
-                    @resume="timerStore.resumeTimer()"
-                    @stop="timerStore.stopTimer()"
+                    @start="handleStartTimer(task.id, $event)"
+                    @pause="handlePauseTimer(task.id)"
+                    @resume="handleResumeTimer(task.id)"
+                    @stop="handleStopTimer(task.id)"
                   />
                   <button
                     @click="handleDeleteTask(task.id)"
@@ -147,6 +154,32 @@
       @close="taskModalOpen = false"
       @submit="handleCreateTask"
     />
+
+    <!-- Confirmation Modal -->
+    <ConfirmModal
+      :is-open="confirmModalOpen"
+      :title="confirmModalConfig.title"
+      :message="confirmModalConfig.message"
+      :confirm-label="confirmModalConfig.confirmLabel"
+      :cancel-label="confirmModalConfig.cancelLabel"
+      :variant="confirmModalConfig.variant"
+      @confirm="confirmModalConfig.onConfirm"
+      @cancel="confirmModalOpen = false"
+      @close="confirmModalOpen = false"
+    />
+
+    <!-- Timer Switching Modal -->
+    <ConfirmModal
+      :is-open="timerSwitchModalOpen"
+      title="Start Timer"
+      message="Another timer is currently running. What would you like to do?"
+      confirm-label="Pause & Start New"
+      cancel-label="Start Without Pausing"
+      variant="warning"
+      @confirm="handlePauseAndStartNew"
+      @cancel="handleStartWithoutPausing"
+      @close="timerSwitchModalOpen = false"
+    />
   </div>
 </template>
 
@@ -163,6 +196,21 @@ const editingTaskName = ref('')
 const editingProjectId = ref<string | null>(null)
 const editingProjectName = ref('')
 
+// Confirmation modal state
+const confirmModalOpen = ref(false)
+const confirmModalConfig = ref({
+  title: '',
+  message: '',
+  confirmLabel: 'Confirm',
+  cancelLabel: 'Cancel',
+  variant: 'info' as 'danger' | 'info' | 'warning',
+  onConfirm: () => {}
+})
+
+// Timer switching confirmation modal state
+const timerSwitchModalOpen = ref(false)
+const pendingTaskId = ref<string | null>(null)
+
 const formattedTodayTotal = computed(() => {
   const totalSeconds = Math.floor(timerStore.getTodayTotal() / 1000)
   const hours = Math.floor(totalSeconds / 3600)
@@ -176,6 +224,67 @@ const formattedTodayTotal = computed(() => {
   }
   return `${seconds}s`
 })
+
+const hasRunningTimer = computed(() => {
+  return timerStore.activeEntries.some(e => e.isRunning)
+})
+
+function handleGlobalPause() {
+  timerStore.pauseAllTimers()
+}
+
+function handleStartTimer(taskId: string, pauseOthers: boolean) {
+  // Check if there are other running timers
+  const hasOtherRunningTimers = timerStore.activeEntries.some(
+    e => e.taskId !== taskId && e.isRunning
+  )
+
+  if (hasOtherRunningTimers && pauseOthers) {
+    // Show confirmation modal
+    pendingTaskId.value = taskId
+    timerSwitchModalOpen.value = true
+  } else {
+    timerStore.startTimer(taskId, pauseOthers)
+  }
+}
+
+function handlePauseAndStartNew() {
+  if (pendingTaskId.value) {
+    timerStore.pauseAllTimers()
+    timerStore.startTimer(pendingTaskId.value, false)
+    timerSwitchModalOpen.value = false
+    pendingTaskId.value = null
+  }
+}
+
+function handleStartWithoutPausing() {
+  if (pendingTaskId.value) {
+    timerStore.startTimer(pendingTaskId.value, false)
+    timerSwitchModalOpen.value = false
+    pendingTaskId.value = null
+  }
+}
+
+function handlePauseTimer(taskId: string) {
+  const entry = timerStore.getActiveEntryForTask(taskId)
+  if (entry) {
+    timerStore.pauseTimer(entry.id)
+  }
+}
+
+function handleResumeTimer(taskId: string) {
+  const entry = timerStore.getActiveEntryForTask(taskId)
+  if (entry) {
+    timerStore.resumeTimer(entry.id)
+  }
+}
+
+function handleStopTimer(taskId: string) {
+  const entry = timerStore.getActiveEntryForTask(taskId)
+  if (entry) {
+    timerStore.stopTimer(entry.id)
+  }
+}
 
 function handleCreateProject(name: string, color: string) {
   projectStore.addProject(name, color)
@@ -193,27 +302,47 @@ function handleCreateTask(name: string) {
 }
 
 function handleDeleteProject(id: string) {
-  if (confirm('Delete this project and all its tasks?')) {
-    const tasks = taskStore.getTasksByProject(id)
-    tasks.forEach(task => {
-      taskStore.removeTask(task.id)
-      timerStore.entries = timerStore.entries.filter(e => e.taskId !== task.id)
-      if (timerStore.activeEntry?.taskId === task.id) {
-        timerStore.stopTimer()
-      }
-    })
-    projectStore.removeProject(id)
+  confirmModalConfig.value = {
+    title: 'Delete Project',
+    message: 'Delete this project and all its tasks?',
+    confirmLabel: 'Delete',
+    cancelLabel: 'Cancel',
+    variant: 'danger',
+    onConfirm: () => {
+      const tasks = taskStore.getTasksByProject(id)
+      tasks.forEach(task => {
+        taskStore.removeTask(task.id)
+        timerStore.entries = timerStore.entries.filter(e => e.taskId !== task.id)
+        const entry = timerStore.getActiveEntryForTask(task.id)
+        if (entry) {
+          timerStore.stopTimer(entry.id)
+        }
+      })
+      projectStore.removeProject(id)
+      confirmModalOpen.value = false
+    }
   }
+  confirmModalOpen.value = true
 }
 
 function handleDeleteTask(id: string) {
-  if (confirm('Delete this task and all its time entries?')) {
-    timerStore.entries = timerStore.entries.filter(e => e.taskId !== id)
-    if (timerStore.activeEntry?.taskId === id) {
-      timerStore.stopTimer()
+  confirmModalConfig.value = {
+    title: 'Delete Task',
+    message: 'Delete this task and all its time entries?',
+    confirmLabel: 'Delete',
+    cancelLabel: 'Cancel',
+    variant: 'danger',
+    onConfirm: () => {
+      timerStore.entries = timerStore.entries.filter(e => e.taskId !== id)
+      const entry = timerStore.getActiveEntryForTask(id)
+      if (entry) {
+        timerStore.stopTimer(entry.id)
+      }
+      taskStore.removeTask(id)
+      confirmModalOpen.value = false
     }
-    taskStore.removeTask(id)
   }
+  confirmModalOpen.value = true
 }
 
 function startEditingTask(taskId: string, taskName: string) {

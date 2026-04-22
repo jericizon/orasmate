@@ -14,27 +14,29 @@ export interface TimeEntry {
 
 export const useTimerStore = defineStore('timer', {
   state: () => ({
-    activeEntry: null as TimeEntry | null,
+    activeEntries: [] as TimeEntry[],
     entries: [] as TimeEntry[]
   }),
 
   persist: true,
 
   actions: {
-    startTimer(taskId: string) {
-      // Stop or pause any active timer first
-      if (this.activeEntry) {
-        if (this.activeEntry.isRunning) {
-          this.stopTimer()
-        } else {
-          // It's paused, finalize it
-          this.activeEntry.endTime = Date.now()
-          this.activeEntry.isRunning = false
-          this.entries.push({ ...this.activeEntry })
-        }
+    startTimer(taskId: string, pauseOthers: boolean = true) {
+      // Pause other running timers if requested
+      if (pauseOthers) {
+        this.pauseAllTimers()
       }
 
-      this.activeEntry = {
+      // Check if there's already an active entry for this task
+      const existingEntry = this.activeEntries.find(e => e.taskId === taskId)
+      if (existingEntry) {
+        if (existingEntry.isPaused) {
+          this.resumeTimer(existingEntry.id)
+        }
+        return
+      }
+
+      this.activeEntries.push({
         id: crypto.randomUUID(),
         taskId,
         startTime: Date.now(),
@@ -44,102 +46,161 @@ export const useTimerStore = defineStore('timer', {
         isPaused: false,
         pausedAt: null,
         totalPausedTime: 0
+      })
+    },
+
+    pauseTimer(entryId?: string) {
+      if (entryId) {
+        const entry = this.activeEntries.find(e => e.id === entryId)
+        if (entry && entry.isRunning) {
+          entry.isPaused = true
+          entry.isRunning = false
+          entry.pausedAt = Date.now()
+        }
+      } else {
+        // Pause all running timers
+        this.activeEntries.forEach(entry => {
+          if (entry.isRunning) {
+            entry.isPaused = true
+            entry.isRunning = false
+            entry.pausedAt = Date.now()
+          }
+        })
       }
     },
 
-    pauseTimer() {
-      if (this.activeEntry && this.activeEntry.isRunning) {
-        this.activeEntry.isPaused = true
-        this.activeEntry.isRunning = false
-        this.activeEntry.pausedAt = Date.now()
+    resumeTimer(entryId: string) {
+      const entry = this.activeEntries.find(e => e.id === entryId)
+      if (entry && entry.isPaused) {
+        const pauseDuration = entry.pausedAt ? Date.now() - entry.pausedAt : 0
+        entry.totalPausedTime += pauseDuration
+        entry.isPaused = false
+        entry.isRunning = true
+        entry.pausedAt = null
       }
     },
 
-    resumeTimer() {
-      if (this.activeEntry && this.activeEntry.isPaused) {
-        const pauseDuration = this.activeEntry.pausedAt ? Date.now() - this.activeEntry.pausedAt : 0
-        this.activeEntry.totalPausedTime += pauseDuration
-        this.activeEntry.isPaused = false
-        this.activeEntry.isRunning = true
-        this.activeEntry.pausedAt = null
+    stopTimer(entryId?: string) {
+      if (entryId) {
+        const index = this.activeEntries.findIndex(e => e.id === entryId)
+        if (index !== -1) {
+          const entry = this.activeEntries[index]
+          const now = Date.now()
+          entry.endTime = now
+          entry.duration = now - entry.startTime - entry.totalPausedTime
+          entry.isRunning = false
+          entry.isPaused = false
+
+          this.entries.push({ ...entry })
+          this.activeEntries.splice(index, 1)
+        }
+      } else {
+        // Stop all active timers
+        const now = Date.now()
+        this.activeEntries.forEach(entry => {
+          entry.endTime = now
+          entry.duration = now - entry.startTime - entry.totalPausedTime
+          entry.isRunning = false
+          entry.isPaused = false
+          this.entries.push({ ...entry })
+        })
+        this.activeEntries = []
       }
     },
 
-    stopTimer() {
-      if (!this.activeEntry) return
+    pauseAllTimers() {
+      this.activeEntries.forEach(entry => {
+        if (entry.isRunning) {
+          entry.isPaused = true
+          entry.isRunning = false
+          entry.pausedAt = Date.now()
+        }
+      })
+    },
 
+    getCurrentDuration(taskId?: string): number {
       const now = Date.now()
-      this.activeEntry.endTime = now
-      this.activeEntry.duration = now - this.activeEntry.startTime - this.activeEntry.totalPausedTime
-      this.activeEntry.isRunning = false
-      this.activeEntry.isPaused = false
+      let total = 0
 
-      this.entries.push({ ...this.activeEntry })
-      this.activeEntry = null
-    },
+      this.activeEntries.forEach(entry => {
+        if (taskId && entry.taskId !== taskId) return
 
-    getCurrentDuration(): number {
-      if (!this.activeEntry) return 0
+        if (entry.isRunning) {
+          total += now - entry.startTime - entry.totalPausedTime
+        } else if (entry.isPaused) {
+          total += entry.pausedAt! - entry.startTime - entry.totalPausedTime
+        }
+      })
 
-      const now = Date.now()
-      if (this.activeEntry.isRunning) {
-        return now - this.activeEntry.startTime - this.activeEntry.totalPausedTime
-      } else if (this.activeEntry.isPaused) {
-        return this.activeEntry.pausedAt! - this.activeEntry.startTime - this.activeEntry.totalPausedTime
-      }
-      return 0
+      return total
     },
 
     getTotalTimeForTask(taskId: string): number {
       let total = 0
-      
+
       // Sum completed entries
       total += this.entries
         .filter(e => e.taskId === taskId)
         .reduce((sum, e) => sum + e.duration, 0)
-      
+
       // Add active timer time if it's for this task
-      if (this.activeEntry && this.activeEntry.taskId === taskId) {
-        total += this.getCurrentDuration()
-      }
-      
+      total += this.getCurrentDuration(taskId)
+
       return total
     },
 
     getTotalTimeForProject(projectId: string, taskIds: string[]): number {
       let total = 0
       const projectTaskIds = new Set(taskIds)
-      
+
       // Sum completed entries for project tasks
       total += this.entries
         .filter(e => projectTaskIds.has(e.taskId))
         .reduce((sum, e) => sum + e.duration, 0)
-      
+
       // Add active timer time if it's for a project task
-      if (this.activeEntry && projectTaskIds.has(this.activeEntry.taskId)) {
-        total += this.getCurrentDuration()
-      }
-      
+      this.activeEntries.forEach(entry => {
+        if (projectTaskIds.has(entry.taskId)) {
+          const now = Date.now()
+          if (entry.isRunning) {
+            total += now - entry.startTime - entry.totalPausedTime
+          } else if (entry.isPaused) {
+            total += entry.pausedAt! - entry.startTime - entry.totalPausedTime
+          }
+        }
+      })
+
       return total
     },
 
     getTodayTotal(): number {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      
+
       let total = 0
-      
+
       // Sum completed entries from today
       total += this.entries
         .filter(e => e.startTime >= today.getTime())
         .reduce((sum, e) => sum + e.duration, 0)
-      
+
       // Add active timer time if started today
-      if (this.activeEntry && this.activeEntry.startTime >= today.getTime()) {
-        total += this.getCurrentDuration()
-      }
-      
+      const now = Date.now()
+      this.activeEntries.forEach(entry => {
+        if (entry.startTime >= today.getTime()) {
+          if (entry.isRunning) {
+            total += now - entry.startTime - entry.totalPausedTime
+          } else if (entry.isPaused) {
+            total += entry.pausedAt! - entry.startTime - entry.totalPausedTime
+          }
+        }
+      })
+
       return total
+    },
+
+    getActiveEntryForTask(taskId: string): TimeEntry | null {
+      return this.activeEntries.find(e => e.taskId === taskId) || null
     }
   }
 })
