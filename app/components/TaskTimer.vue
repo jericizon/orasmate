@@ -64,14 +64,49 @@ defineEmits<{
   stop: []
 }>()
 
+const currentDurationMs = ref(props.durationMs)
+
+// Update duration every second when timer is running
+let intervalId: number | null = null
+
+watch(() => props.isRunning, (isRunning) => {
+  if (isRunning) {
+    intervalId = window.setInterval(() => {
+      currentDurationMs.value += 1000
+    }, 1000)
+  } else {
+    if (intervalId) {
+      clearInterval(intervalId)
+      intervalId = null
+    }
+    // Reset to the actual duration when not running
+    currentDurationMs.value = props.durationMs
+  }
+})
+
+watch(() => props.durationMs, (newDuration) => {
+  if (!props.isRunning) {
+    currentDurationMs.value = newDuration
+  }
+})
+
+onUnmounted(() => {
+  if (intervalId) {
+    clearInterval(intervalId)
+  }
+})
+
 const formattedTime = computed(() => {
-  const totalSeconds = Math.floor(props.durationMs / 1000)
+  const totalSeconds = Math.floor(currentDurationMs.value / 1000)
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const seconds = totalSeconds % 60
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+    return `${hours}h ${minutes}m ${seconds}s`
   }
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`
+  }
+  return `${seconds}s`
 })
 </script>
