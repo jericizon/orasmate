@@ -2,7 +2,15 @@
   <div class="min-h-screen p-8">
     <header class="flex justify-between items-center mb-8">
       <h1 class="text-3xl font-bold">Orasmate</h1>
-      <ThemeToggle />
+      <div class="flex items-center gap-4">
+        <button
+          @click="projectModalOpen = true"
+          class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+        >
+          New Project
+        </button>
+        <ThemeToggle />
+      </div>
     </header>
 
     <div class="grid gap-8 max-w-4xl mx-auto">
@@ -12,38 +20,102 @@
         <div class="text-4xl font-mono font-bold">{{ formattedTodayTotal }}</div>
       </div>
 
-      <!-- Active Timer -->
-      <div v-if="timerStore.activeEntry" class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-        <h2 class="text-xl font-semibold mb-4">Active Timer</h2>
-        <div class="flex flex-col items-center gap-4">
-          <TimerDisplay :duration-ms="timerStore.getCurrentDuration()" />
-          <TimerControls
-            :is-running="timerStore.activeEntry.isRunning"
-            :is-paused="timerStore.activeEntry.isPaused"
-            @start="resumeTimer"
-            @pause="timerStore.pauseTimer()"
-            @resume="resumeTimer"
-            @stop="timerStore.stopTimer()"
-          />
+      <!-- Projects List with Tasks -->
+      <div>
+        <h2 class="text-xl font-semibold mb-4">Projects</h2>
+        <div v-if="projectStore.projects.length === 0" class="text-gray-500 dark:text-gray-400 py-8 text-center">
+          No projects yet. Create one to get started.
+        </div>
+        <div v-else class="space-y-6">
+          <div
+            v-for="project in projectStore.projects"
+            :key="project.id"
+            class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm"
+          >
+            <!-- Project Header -->
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-4 h-4 rounded-full"
+                  :style="{ backgroundColor: project.color }"
+                />
+                <h3 class="font-semibold text-lg">{{ project.name }}</h3>
+                <span class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ taskStore.getTasksByProject(project.id).length }} task{{ taskStore.getTasksByProject(project.id).length !== 1 ? 's' : '' }}
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="openTaskModal(project.id)"
+                  class="text-sm text-blue-500 hover:text-blue-600 transition-colors"
+                >
+                  + Add Task
+                </button>
+                <button
+                  @click="handleDeleteProject(project.id)"
+                  class="text-gray-400 hover:text-red-500 transition-colors"
+                  title="Delete project"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tasks List -->
+            <div v-if="taskStore.getTasksByProject(project.id).length === 0" class="text-gray-500 dark:text-gray-400 py-4 text-center text-sm">
+              No tasks yet. Add one above.
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="task in taskStore.getTasksByProject(project.id)"
+                :key="task.id"
+                class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+              >
+                <div class="flex items-center gap-3 flex-1">
+                  <span class="font-medium">{{ task.name }}</span>
+                </div>
+                <div class="flex items-center gap-4">
+                  <TaskTimer
+                    :duration-ms="timerStore.getTotalTimeForTask(task.id)"
+                    :is-running="timerStore.activeEntry?.taskId === task.id && timerStore.activeEntry.isRunning"
+                    :is-paused="timerStore.activeEntry?.taskId === task.id && timerStore.activeEntry.isPaused"
+                    @start="timerStore.startTimer(task.id)"
+                    @pause="timerStore.pauseTimer()"
+                    @resume="timerStore.resumeTimer()"
+                    @stop="timerStore.stopTimer()"
+                  />
+                  <button
+                    @click="handleDeleteTask(task.id)"
+                    class="text-gray-400 hover:text-red-500 transition-colors"
+                    title="Delete task"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <!-- Quick Actions -->
-      <div class="flex gap-4">
-        <NuxtLink
-          to="/projects"
-          class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg text-center transition-colors"
-        >
-          View Projects
-        </NuxtLink>
-        <NuxtLink
-          to="/projects"
-          class="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 font-semibold py-3 px-6 rounded-lg text-center transition-colors"
-        >
-          Manage Projects
-        </NuxtLink>
-      </div>
     </div>
+
+    <!-- Project Modal -->
+    <ProjectModal
+      :is-open="projectModalOpen"
+      @close="projectModalOpen = false"
+      @submit="handleCreateProject"
+    />
+
+    <!-- Task Modal -->
+    <TaskModal
+      :is-open="taskModalOpen"
+      @close="taskModalOpen = false"
+      @submit="handleCreateTask"
+    />
   </div>
 </template>
 
@@ -52,25 +124,67 @@ const projectStore = useProjectStore()
 const taskStore = useTaskStore()
 const timerStore = useTimerStore()
 
+const projectModalOpen = ref(false)
+const taskModalOpen = ref(false)
+const selectedProjectId = ref<string | null>(null)
+
 const formattedTodayTotal = computed(() => {
-  const totalMinutes = Math.floor(timerStore.getTodayTotal() / 60000)
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
+  const totalSeconds = Math.floor(timerStore.getTodayTotal() / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
   if (hours > 0) {
-    return `${hours}h ${minutes}m`
+    return `${hours}h ${minutes}m ${seconds}s`
   }
-  return `${minutes}m`
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`
+  }
+  return `${seconds}s`
 })
 
-function resumeTimer() {
-  timerStore.resumeTimer()
+function handleCreateProject(name: string, color: string) {
+  projectStore.addProject(name, color)
 }
 
-// Initialize timer on mount - check if there's an active timer
+function openTaskModal(projectId: string) {
+  selectedProjectId.value = projectId
+  taskModalOpen.value = true
+}
+
+function handleCreateTask(name: string) {
+  if (selectedProjectId.value) {
+    taskStore.addTask(selectedProjectId.value, name)
+  }
+}
+
+function handleDeleteProject(id: string) {
+  if (confirm('Delete this project and all its tasks?')) {
+    const tasks = taskStore.getTasksByProject(id)
+    tasks.forEach(task => {
+      taskStore.removeTask(task.id)
+      timerStore.entries = timerStore.entries.filter(e => e.taskId !== task.id)
+      if (timerStore.activeEntry?.taskId === task.id) {
+        timerStore.stopTimer()
+      }
+    })
+    projectStore.removeProject(id)
+  }
+}
+
+function handleDeleteTask(id: string) {
+  if (confirm('Delete this task and all its time entries?')) {
+    timerStore.entries = timerStore.entries.filter(e => e.taskId !== id)
+    if (timerStore.activeEntry?.taskId === id) {
+      timerStore.stopTimer()
+    }
+    taskStore.removeTask(id)
+  }
+}
+
+// Initialize timer on mount
 onMounted(() => {
   if (timerStore.activeEntry && timerStore.activeEntry.isRunning) {
     // Timer is already running from previous session
-    // It will continue tracking based on startTime timestamp
   }
 })
 

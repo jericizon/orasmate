@@ -12,9 +12,10 @@ interface Props {
 const props = defineProps<Props>()
 
 const formattedTime = computed(() => {
-  const totalMinutes = Math.floor(props.durationMs / 60000)
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return `${hours}:${minutes.toString().padStart(2, '0')}`
+  const totalSeconds = Math.floor(props.durationMs / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 })
 </script>
