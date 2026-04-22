@@ -95,6 +95,15 @@ watch(() => props.durationMs, (newDuration) => {
   }
 })
 
+onMounted(() => {
+  // Start interval if timer is already running (e.g., after page reload)
+  if (isRunning.value) {
+    intervalId = window.setInterval(() => {
+      currentDurationMs.value += 1000
+    }, 1000)
+  }
+})
+
 onUnmounted(() => {
   if (intervalId) {
     clearInterval(intervalId)

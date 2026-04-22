@@ -96,7 +96,7 @@
               >
                 <div class="flex items-center gap-3 flex-1">
                   <div
-                    v-if="timerStore.activeEntry?.taskId === task.id && timerStore.activeEntry.isRunning"
+                    v-if="timerStore.getActiveEntryForTask(task.id)?.isRunning"
                     class="w-3 h-3 bg-green-500 rounded-full animate-pulse"
                     title="Timer running"
                   />
