@@ -125,4 +125,14 @@ describe('Project Store', () => {
       expect(store.projects[0].name).toBe(originalName)
     })
   })
+
+  describe('Order Field', () => {
+    it('should have order field in project interface', () => {
+      const store = useProjectStore()
+      store.addProject('Test Project', '#FF0000')
+      const project = store.projects[0]
+      expect(project).toHaveProperty('order')
+      expect(typeof project.order).toBe('number')
+    })
+  })
 })

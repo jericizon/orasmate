@@ -5,6 +5,7 @@ export interface Project {
   name: string
   color: string
   createdAt: number
+  order: number
 }
 
 export const useProjectStore = defineStore('projects', {
@@ -14,13 +15,20 @@ export const useProjectStore = defineStore('projects', {
 
   persist: true,
 
+  getters: {
+    sortedProjects: (state) => {
+      return [...state.projects].sort((a, b) => a.order - b.order)
+    }
+  },
+
   actions: {
     addProject(name: string, color: string) {
       const project: Project = {
         id: crypto.randomUUID(),
         name,
         color,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        order: this.projects.length
       }
       this.projects.push(project)
     },
@@ -41,6 +49,33 @@ export const useProjectStore = defineStore('projects', {
       if (project) {
         Object.assign(project, updates)
       }
+    },
+
+    migrateProjects() {
+      this.projects.forEach((project, index) => {
+        if (project.order === undefined) {
+          project.order = index
+        }
+      })
+    },
+
+    reorderProject(fromIndex: number, toIndex: number) {
+      if (fromIndex === toIndex) return
+      if (fromIndex < 0 || fromIndex >= this.projects.length) return
+      if (toIndex < 0 || toIndex >= this.projects.length) return
+
+      const [movedProject] = this.projects.splice(fromIndex, 1)
+      if (movedProject) {
+        this.projects.splice(toIndex, 0, movedProject)
+      }
+
+      this.projects.forEach((project, index) => {
+        project.order = index
+      })
     }
+  },
+
+  hydrate(state) {
+    state.migrateProjects()
   }
 })

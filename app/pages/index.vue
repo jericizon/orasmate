@@ -36,13 +36,30 @@
         </div>
         <div v-else class="space-y-6">
           <div
-            v-for="project in projectStore.projects"
+            v-for="project in projectStore.sortedProjects"
             :key="project.id"
-            class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm"
+            class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm group transition-opacity"
+            :class="{ 'opacity-50': draggingProjectId === project.id }"
+            @dragover.prevent
+            @drop="handleProjectDrop($event, project.id)"
           >
             <!-- Project Header -->
             <div class="flex items-center justify-between mb-4">
               <div class="flex items-center gap-3">
+                <div 
+                  class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  draggable="true"
+                  @dragstart="handleProjectDragStart($event, project.id)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="9" cy="6" r="1.5"/>
+                    <circle cx="15" cy="6" r="1.5"/>
+                    <circle cx="9" cy="12" r="1.5"/>
+                    <circle cx="15" cy="12" r="1.5"/>
+                    <circle cx="9" cy="18" r="1.5"/>
+                    <circle cx="15" cy="18" r="1.5"/>
+                  </svg>
+                </div>
                 <div
                   class="w-4 h-4 rounded-full"
                   :style="{ backgroundColor: project.color }"
@@ -92,9 +109,26 @@
               <div
                 v-for="task in taskStore.getTasksByProject(project.id)"
                 :key="task.id"
-                class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg group transition-opacity"
+                :class="{ 'opacity-50': draggingTaskId === task.id }"
+                @dragover.prevent
+                @drop="handleTaskDrop($event, project.id, task.id)"
               >
                 <div class="flex items-center gap-3 flex-1">
+                  <div 
+                    class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    draggable="true"
+                    @dragstart="handleTaskDragStart($event, task.id)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <circle cx="9" cy="6" r="1.5"/>
+                      <circle cx="15" cy="6" r="1.5"/>
+                      <circle cx="9" cy="12" r="1.5"/>
+                      <circle cx="15" cy="12" r="1.5"/>
+                      <circle cx="9" cy="18" r="1.5"/>
+                      <circle cx="15" cy="18" r="1.5"/>
+                    </svg>
+                  </div>
                   <div
                     v-if="timerStore.getActiveEntryForTask(task.id)?.isRunning"
                     class="w-3 h-3 bg-green-500 rounded-full animate-pulse"
@@ -194,6 +228,8 @@ const editingTaskId = ref<string | null>(null)
 const editingTaskName = ref('')
 const editingProjectId = ref<string | null>(null)
 const editingProjectName = ref('')
+const draggingProjectId = ref<string | null>(null)
+const draggingTaskId = ref<string | null>(null)
 
 // Confirmation modal state
 const confirmModalOpen = ref(false)
@@ -382,6 +418,59 @@ function finishEditingProject(projectId: string) {
 function cancelEditingProject() {
   editingProjectId.value = null
   editingProjectName.value = ''
+}
+
+function handleProjectDragStart(event: DragEvent, projectId: string) {
+  draggingProjectId.value = projectId
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', projectId)
+  }
+}
+
+function handleProjectDrop(event: DragEvent, targetProjectId: string) {
+  event.preventDefault()
+  const sourceProjectId = draggingProjectId.value
+  if (!sourceProjectId || sourceProjectId === targetProjectId) {
+    draggingProjectId.value = null
+    return
+  }
+
+  const fromIndex = projectStore.projects.findIndex(p => p.id === sourceProjectId)
+  const toIndex = projectStore.projects.findIndex(p => p.id === targetProjectId)
+
+  if (fromIndex !== -1 && toIndex !== -1) {
+    projectStore.reorderProject(fromIndex, toIndex)
+  }
+
+  draggingProjectId.value = null
+}
+
+function handleTaskDragStart(event: DragEvent, taskId: string) {
+  draggingTaskId.value = taskId
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', taskId)
+  }
+}
+
+function handleTaskDrop(event: DragEvent, projectId: string, targetTaskId: string) {
+  event.preventDefault()
+  const sourceTaskId = draggingTaskId.value
+  if (!sourceTaskId || sourceTaskId === targetTaskId) {
+    draggingTaskId.value = null
+    return
+  }
+
+  const projectTasks = taskStore.getTasksByProject(projectId)
+  const fromIndex = projectTasks.findIndex(t => t.id === sourceTaskId)
+  const toIndex = projectTasks.findIndex(t => t.id === targetTaskId)
+
+  if (fromIndex !== -1 && toIndex !== -1) {
+    taskStore.reorderTask(projectId, fromIndex, toIndex)
+  }
+
+  draggingTaskId.value = null
 }
 
 // Initialize timer on mount
