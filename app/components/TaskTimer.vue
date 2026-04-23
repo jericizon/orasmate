@@ -10,9 +10,7 @@
         class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
         title="Start timer"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z" />
-        </svg>
+        <Play :size="16" />
       </button>
       <button
         v-if="isRunning"
@@ -20,9 +18,7 @@
         class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
         title="Pause timer"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-        </svg>
+        <Pause :size="16" />
       </button>
       <button
         v-if="isPaused"
@@ -30,15 +26,15 @@
         class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
         title="Resume timer"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z" />
-        </svg>
+        <Play :size="16" />
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Play, Pause } from 'lucide-vue-next'
+
 interface Props {
   taskId: string
   durationMs: number
