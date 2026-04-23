@@ -9,7 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "vitest",
-    "deploy": "gh-pages -d .output/public",
+    "deploy": "gh-pages -d .output/public --dotfiles",
     "deploy:build": "npm run generate && npm run deploy"
   },
   "dependencies": {

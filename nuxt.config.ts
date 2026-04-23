@@ -15,6 +15,11 @@ export default defineNuxtConfig({
     'pinia-plugin-persistedstate/nuxt'
   ],
 
+  piniaPluginPersistedstate: {
+    storage: 'localStorage',
+    key: 'orasmate:%id'
+  },
+
   colorMode: {
     classSuffix: '',
     preference: 'system'
