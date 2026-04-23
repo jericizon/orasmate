@@ -49,11 +49,12 @@ describe('Timer Store', () => {
       
       timerStore.startTimer(taskId1)
       vi.advanceTimersByTime(5000)
+      timerStore.pauseTimer()
       timerStore.startTimer(taskId2)
       
       expect(timerStore.entries).toHaveLength(1)
       expect(timerStore.entries[0].taskId).toBe(taskId1)
-      expect(timerStore.entries[0].endTime).toBeDefined()
+      expect(timerStore.entries[0].isPaused).toBe(true)
       expect(timerStore.activeEntry?.taskId).toBe(taskId2)
     })
 
@@ -136,56 +137,6 @@ describe('Timer Store', () => {
     })
   })
 
-  describe('stopTimer', () => {
-    it('stops and finalizes the active timer', () => {
-      const projectStore = useProjectStore()
-      const taskStore = useTaskStore()
-      const timerStore = useTimerStore()
-      
-      projectStore.addProject('My Project', '#3b82f6')
-      const projectId = projectStore.projects[0].id
-      taskStore.addTask(projectId, 'My Task')
-      const taskId = taskStore.tasks[0].id
-      
-      timerStore.startTimer(taskId)
-      vi.advanceTimersByTime(5000)
-      timerStore.stopTimer()
-      
-      expect(timerStore.activeEntry).toBeNull()
-      expect(timerStore.entries).toHaveLength(1)
-      expect(timerStore.entries[0].endTime).toBeDefined()
-      expect(timerStore.entries[0].duration).toBe(5000)
-    })
-
-    it('stops a paused timer and accumulates pause time', () => {
-      const projectStore = useProjectStore()
-      const taskStore = useTaskStore()
-      const timerStore = useTimerStore()
-      
-      projectStore.addProject('My Project', '#3b82f6')
-      const projectId = projectStore.projects[0].id
-      taskStore.addTask(projectId, 'My Task')
-      const taskId = taskStore.tasks[0].id
-      
-      timerStore.startTimer(taskId)
-      vi.advanceTimersByTime(5000)
-      timerStore.pauseTimer()
-      vi.advanceTimersByTime(2000)
-      timerStore.resumeTimer()
-      vi.advanceTimersByTime(3000)
-      timerStore.stopTimer()
-      
-      expect(timerStore.entries[0].duration).toBe(8000)
-      expect(timerStore.entries[0].totalPausedTime).toBe(2000)
-    })
-
-    it('does nothing if no timer is active', () => {
-      const timerStore = useTimerStore()
-      
-      expect(() => timerStore.stopTimer()).not.toThrow()
-      expect(timerStore.entries).toHaveLength(0)
-    })
-  })
 
   describe('getCurrentDuration', () => {
     it('returns current duration for running timer', () => {
@@ -246,15 +197,15 @@ describe('Timer Store', () => {
       
       timerStore.startTimer(taskId1)
       vi.advanceTimersByTime(5000)
-      timerStore.stopTimer()
+      timerStore.pauseTimer()
       
       timerStore.startTimer(taskId1)
       vi.advanceTimersByTime(3000)
-      timerStore.stopTimer()
+      timerStore.pauseTimer()
       
       timerStore.startTimer(taskId2)
       vi.advanceTimersByTime(2000)
-      timerStore.stopTimer()
+      timerStore.pauseTimer()
       
       expect(timerStore.getTotalTimeForTask(taskId1)).toBe(8000)
       expect(timerStore.getTotalTimeForTask(taskId2)).toBe(2000)
@@ -297,15 +248,15 @@ describe('Timer Store', () => {
       
       timerStore.startTimer(taskId1)
       vi.advanceTimersByTime(5000)
-      timerStore.stopTimer()
+      timerStore.pauseTimer()
       
       timerStore.startTimer(taskId2)
       vi.advanceTimersByTime(3000)
-      timerStore.stopTimer()
+      timerStore.pauseTimer()
       
       timerStore.startTimer(taskId3)
       vi.advanceTimersByTime(2000)
-      timerStore.stopTimer()
+      timerStore.pauseTimer()
       
       expect(timerStore.getTotalTimeForProject(projectId1)).toBe(8000)
       expect(timerStore.getTotalTimeForProject(projectId2)).toBe(2000)
@@ -328,7 +279,7 @@ describe('Timer Store', () => {
       
       timerStore.startTimer(taskId)
       vi.advanceTimersByTime(5000)
-      timerStore.stopTimer()
+      timerStore.pauseTimer()
       
       expect(timerStore.getTodayTotal()).toBe(5000)
     })

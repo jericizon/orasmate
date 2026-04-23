@@ -122,7 +122,6 @@
                     @start="handleStartTimer(task.id, $event)"
                     @pause="handlePauseTimer(task.id)"
                     @resume="handleResumeTimer(task.id)"
-                    @stop="handleStopTimer(task.id)"
                   />
                   <button
                     @click="handleDeleteTask(task.id)"
@@ -279,12 +278,6 @@ function handleResumeTimer(taskId: string) {
   }
 }
 
-function handleStopTimer(taskId: string) {
-  const entry = timerStore.getActiveEntryForTask(taskId)
-  if (entry) {
-    timerStore.stopTimer(entry.id)
-  }
-}
 
 function handleCreateProject(name: string, color: string) {
   projectStore.addProject(name, color)
@@ -315,7 +308,7 @@ function handleDeleteProject(id: string) {
         timerStore.entries = timerStore.entries.filter(e => e.taskId !== task.id)
         const entry = timerStore.getActiveEntryForTask(task.id)
         if (entry) {
-          timerStore.stopTimer(entry.id)
+          timerStore.pauseTimer(entry.id)
         }
       })
       projectStore.removeProject(id)
@@ -336,7 +329,7 @@ function handleDeleteTask(id: string) {
       timerStore.entries = timerStore.entries.filter(e => e.taskId !== id)
       const entry = timerStore.getActiveEntryForTask(id)
       if (entry) {
-        timerStore.stopTimer(entry.id)
+        timerStore.pauseTimer(entry.id)
       }
       taskStore.removeTask(id)
       confirmModalOpen.value = false
@@ -393,7 +386,7 @@ function cancelEditingProject() {
 
 // Initialize timer on mount
 onMounted(() => {
-  if (timerStore.activeEntry && timerStore.activeEntry.isRunning) {
+  if (timerStore.activeEntries[0] && timerStore.activeEntries[0].isRunning) {
     // Timer is already running from previous session
   }
 })

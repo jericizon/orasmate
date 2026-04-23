@@ -31,7 +31,7 @@
             :key="task.id"
             :task="task"
             :total-time-ms="timerStore.getTotalTimeForTask(task.id)"
-            :is-running="timerStore.activeEntry?.taskId === task.id"
+            :is-running="timerStore.activeEntries[0]?.taskId === task.id"
             @select="handleSelectTask(task.id)"
             @delete="handleDeleteTask(task.id)"
           />
@@ -44,12 +44,11 @@
         <div class="flex flex-col items-center gap-4">
           <TimerDisplay :duration-ms="timerStore.getCurrentDuration()" />
           <TimerControls
-            :is-running="timerStore.activeEntry?.isRunning || false"
-            :is-paused="timerStore.activeEntry?.isPaused || false"
+            :is-running="timerStore.activeEntries[0]?.isRunning || false"
+            :is-paused="timerStore.activeEntries[0]?.isPaused || false"
             @start="timerStore.startTimer(selectedTask.id)"
-            @pause="timerStore.pauseTimer()"
-            @resume="timerStore.resumeTimer()"
-            @stop="timerStore.stopTimer()"
+            @pause="timerStore.activeEntries[0]?.id ? timerStore.pauseTimer(timerStore.activeEntries[0].id) : undefined"
+            @resume="timerStore.activeEntries[0]?.id ? timerStore.resumeTimer(timerStore.activeEntries[0].id) : undefined"
           />
         </div>
       </div>
@@ -100,8 +99,8 @@ function handleDeleteTask(id: string) {
   if (confirm('Delete this task and all its time entries?')) {
     // Remove timer entries for this task
     timerStore.entries = timerStore.entries.filter(e => e.taskId !== id)
-    if (timerStore.activeEntry?.taskId === id) {
-      timerStore.stopTimer()
+    if (timerStore.activeEntries[0]?.taskId === id && timerStore.activeEntries[0].id) {
+      timerStore.pauseTimer(timerStore.activeEntries[0].id)
     }
     if (selectedTaskId.value === id) {
       selectedTaskId.value = null
@@ -116,9 +115,9 @@ function handleSelectTask(id: string) {
 
 // Initialize timer on mount
 onMounted(() => {
-  if (timerStore.activeEntry && timerStore.activeEntry.isRunning) {
+  if (timerStore.activeEntries[0] && timerStore.activeEntries[0].isRunning) {
     // Timer is already running from previous session
-    const task = taskStore.getTaskById(timerStore.activeEntry.taskId)
+    const task = taskStore.getTaskById(timerStore.activeEntries[0].taskId)
     if (task && task.projectId === project.value?.id) {
       selectedTaskId.value = task.id
     }

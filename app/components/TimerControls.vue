@@ -21,13 +21,6 @@
     >
       Resume
     </button>
-    <button
-      v-if="isRunning || isPaused"
-      @click="$emit('stop')"
-      class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
-    >
-      Stop
-    </button>
   </div>
 </template>
 
@@ -43,6 +36,5 @@ defineEmits<{
   start: []
   pause: []
   resume: []
-  stop: []
 }>()
 </script>

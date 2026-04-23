@@ -34,16 +34,6 @@
           <path d="M8 5v14l11-7z" />
         </svg>
       </button>
-      <button
-        v-if="isRunning || isPaused"
-        @click="$emit('stop')"
-        class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-600 dark:text-gray-400 transition-colors"
-        title="Stop timer"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <rect x="6" y="6" width="12" height="12" />
-        </svg>
-      </button>
     </div>
   </div>
 </template>
@@ -62,7 +52,6 @@ defineEmits<{
   start: [pauseOthers: boolean]
   pause: []
   resume: []
-  stop: []
 }>()
 
 const activeEntry = computed(() => timerStore.getActiveEntryForTask(props.taskId))
@@ -71,13 +60,16 @@ const isPaused = computed(() => activeEntry.value?.isPaused || false)
 
 const currentDurationMs = ref(props.durationMs)
 
-// Update duration every second when timer is running
+// Update duration every second when timer is running and page is visible
 let intervalId: number | null = null
 
 watch(() => isRunning.value, (running) => {
   if (running) {
     intervalId = window.setInterval(() => {
-      currentDurationMs.value += 1000
+      // Only update UI if page is visible
+      if (timerStore.isPageVisible) {
+        currentDurationMs.value += 1000
+      }
     }, 1000)
   } else {
     if (intervalId) {
@@ -95,20 +87,34 @@ watch(() => props.durationMs, (newDuration) => {
   }
 })
 
-onMounted(() => {
-  // Start interval if timer is already running (e.g., after page reload)
-  if (isRunning.value) {
-    intervalId = window.setInterval(() => {
-      currentDurationMs.value += 1000
-    }, 1000)
+// Sync UI with actual duration when page becomes visible
+watch(() => timerStore.isPageVisible, (isVisible) => {
+  if (isVisible && isRunning.value) {
+    currentDurationMs.value = timerStore.getCurrentDuration(props.taskId)
   }
 })
 
-onUnmounted(() => {
-  if (intervalId) {
-    clearInterval(intervalId)
+onMounted(() => {
+  // Initialize page visibility detection
+  const cleanup = timerStore.initPageVisibility()
+  
+  // Start interval if timer is already running (e.g., after page reload)
+  if (isRunning.value) {
+    intervalId = window.setInterval(() => {
+      // Only update UI if page is visible
+      if (timerStore.isPageVisible) {
+        currentDurationMs.value += 1000
+      }
+    }, 1000)
   }
+  
+  // Cleanup on unmount
+  onUnmounted(() => {
+    cleanup()
+  })
 })
+
+// onUnmounted moved to onMounted for proper cleanup ordering
 
 const formattedTime = computed(() => {
   const totalSeconds = Math.floor(currentDurationMs.value / 1000)

@@ -58,8 +58,8 @@ function handleDeleteProject(id: string) {
       taskStore.removeTask(task.id)
       // Remove timer entries for this task
       timerStore.entries = timerStore.entries.filter(e => e.taskId !== task.id)
-      if (timerStore.activeEntry?.taskId === task.id) {
-        timerStore.stopTimer()
+      if (timerStore.activeEntries[0]?.taskId === task.id && timerStore.activeEntries[0].id) {
+        timerStore.pauseTimer(timerStore.activeEntries[0].id)
       }
     })
     projectStore.removeProject(id)

@@ -15,12 +15,30 @@ export interface TimeEntry {
 export const useTimerStore = defineStore('timer', {
   state: () => ({
     activeEntries: [] as TimeEntry[],
-    entries: [] as TimeEntry[]
+    entries: [] as TimeEntry[],
+    isPageVisible: true
   }),
 
   persist: true,
 
   actions: {
+    initPageVisibility() {
+      if (typeof document !== 'undefined') {
+        this.isPageVisible = !document.hidden
+        
+        const handleVisibilityChange = () => {
+          this.isPageVisible = !document.hidden
+        }
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+        
+        // Return cleanup function
+        return () => {
+          document.removeEventListener('visibilitychange', handleVisibilityChange)
+        }
+      }
+      return () => {}
+    },
     startTimer(taskId: string, pauseOthers: boolean = true) {
       // Pause other running timers if requested
       if (pauseOthers) {
@@ -80,33 +98,6 @@ export const useTimerStore = defineStore('timer', {
       }
     },
 
-    stopTimer(entryId?: string) {
-      if (entryId) {
-        const index = this.activeEntries.findIndex(e => e.id === entryId)
-        if (index !== -1) {
-          const entry = this.activeEntries[index]
-          const now = Date.now()
-          entry.endTime = now
-          entry.duration = now - entry.startTime - entry.totalPausedTime
-          entry.isRunning = false
-          entry.isPaused = false
-
-          this.entries.push({ ...entry })
-          this.activeEntries.splice(index, 1)
-        }
-      } else {
-        // Stop all active timers
-        const now = Date.now()
-        this.activeEntries.forEach(entry => {
-          entry.endTime = now
-          entry.duration = now - entry.startTime - entry.totalPausedTime
-          entry.isRunning = false
-          entry.isPaused = false
-          this.entries.push({ ...entry })
-        })
-        this.activeEntries = []
-      }
-    },
 
     pauseAllTimers() {
       this.activeEntries.forEach(entry => {
